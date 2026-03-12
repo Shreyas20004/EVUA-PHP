@@ -1,0 +1,33 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - STORAGE_DIR=/app/storage   # maps to volume below
+    volumes:
+      # Mount engine so the backend can import it
+      - ./engine:/app/engine
+      # Persist database and git repos across container restarts
+      - ./backend/storage:/app/storage
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the Vite bundle at build time.
+        # In Docker the nginx proxy rewrites /api → backend:8000, so we leave
+        # this as / to let nginx handle it; for local dev use the full URL.
+        VITE_API_BASE_URL: "http://localhost:8000"
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
