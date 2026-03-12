@@ -39,6 +39,7 @@ from ..schemas.migration import (
     RuleMatchResponse,
 )
 from ..workers.job_queue import job_queue, JobState
+from .version_control_service import get_version_control_service as _get_vc
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +133,16 @@ async def run_migration(
             summary={"message": "No PHP files found in the provided paths"},
         )
 
+    # --- Snapshot originals before migration ---
+    vc = _get_vc()
+    try:
+        vc.init_repo(job_id)
+        for fp in all_php_files:
+            vc.save_file(job_id, fp, Path(fp).read_text(encoding="utf-8", errors="replace"))
+        vc.create_version(job_id, f"Original PHP {source_version} source", stage="initial", files_changed=len(all_php_files))
+    except Exception as _vc_err:
+        logger.warning("Version control snapshot (before) failed: %s", _vc_err)
+
     # Use the pipeline's directory runner over each discovered file
     results = []
     import asyncio
@@ -180,6 +191,24 @@ async def run_migration(
                 pipeline._write_output(fp, str(Path(fp).parent), output_dir, res.migrated_code)
 
     pipeline_result.summary = pipeline._summarise(pipeline_result)
+
+    # --- Snapshot migrated output after migration ---
+    try:
+        migrated_count = 0
+        for res in pipeline_result.results:
+            if res.migrated_code:
+                vc.save_file(job_id, res.file_path, res.migrated_code)
+                migrated_count += 1
+        if migrated_count:
+            vc.create_version(
+                job_id,
+                f"Migrated to PHP {target_version} ({migrated_count} files)",
+                stage="migrated",
+                files_changed=migrated_count,
+            )
+    except Exception as _vc_err:
+        logger.warning("Version control snapshot (after) failed: %s", _vc_err)
+
     return pipeline_result
 
 

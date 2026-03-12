@@ -172,4 +172,33 @@ export default function ResultsPage() {
                 {activeTab === 'ai-changes' && (
                   fileResult.ai_changes.length === 0
                     ? <p style={{ color: 'var(--color-text-muted)' }}>No AI changes.</p>
-               
+                    : (
+                      <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {fileResult.ai_changes.map((c, i) => (
+                          <li
+                            key={i}
+                            style={{
+                              background: 'var(--color-bg)',
+                              border: '1px solid var(--color-border)',
+                              borderRadius: 6,
+                              padding: '10px 14px',
+                              fontSize: '0.875rem',
+                              color: 'var(--color-text)',
+                            }}
+                          >
+                            ✦ {c.description}
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                )}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--color-text-muted)' }}>Select a file on the left.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
